@@ -1,0 +1,12 @@
+maubot: 0.1.0
+id: com.kadirceven.goelunch
+version: 0.1.0
+license: MIT
+
+modules:
+  - goelunch
+main_class: GoeLunchBot
+
+config: true
+extra_files:
+  - base-config.yaml

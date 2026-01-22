@@ -1,0 +1,4 @@
+lang: "en"
+default_canteen: "CGiN"
+max_items: 30
+request_timeout: 30
