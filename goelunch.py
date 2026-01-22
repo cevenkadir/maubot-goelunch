@@ -14,8 +14,10 @@ URL_TMPL = (
     "mensaspeiseplan/cached/{lang}/{date}/alle.html"
 )
 
+
 def norm(s: str) -> str:
     return re.sub(r"\s+", " ", (s or "")).strip()
+
 
 def parse_date(token: Optional[str]) -> dt.date:
     if not token or token.lower() == "today":
@@ -24,11 +26,13 @@ def parse_date(token: Optional[str]) -> dt.date:
         return dt.date.today() + dt.timedelta(days=1)
     return dt.date.fromisoformat(token)
 
+
 @dataclass
 class MenuItem:
     typ: str
     title: str
     details: Optional[str]
+
 
 # --- Parser for alle.html structure (tables with sp_tab) ---
 
@@ -43,10 +47,12 @@ BEZ_RE = re.compile(r'<td class="sp_bez">(.*?)</td>', re.I | re.S)
 STRONG_RE = re.compile(r"<strong>(.*?)</strong>", re.I | re.S)
 TAG_STRIP_RE = re.compile(r"<[^>]+>")
 
+
 def html_to_text(fragment: str) -> str:
     frag = re.sub(r"<br\s*/?>", "\n", fragment or "", flags=re.I)
     frag = TAG_STRIP_RE.sub("", frag)
     return norm(frag.replace("\xa0", " "))
+
 
 def parse_alle_html(html: str) -> Dict[str, Dict]:
     out: Dict[str, Dict] = {}
@@ -73,13 +79,14 @@ def parse_alle_html(html: str) -> Dict[str, Dict]:
             title = html_to_text(ms.group(1)) if ms else html_to_text(bez_html)
 
             full = html_to_text(bez_html)
-            details = norm(full[len(title):]) if full.startswith(title) else full
+            details = norm(full[len(title) :]) if full.startswith(title) else full
             details = details if details and details != title else None
 
             items.append(MenuItem(typ=typ, title=title, details=details))
 
         out[canteen] = {"date": date_str, "items": items}
     return out
+
 
 def best_canteen_match(query: str, available: List[str]) -> Optional[str]:
     q = query.strip().lower()
@@ -91,8 +98,14 @@ def best_canteen_match(query: str, available: List[str]) -> Optional[str]:
     hits = [name for name in available if q in name.lower()]
     return hits[0] if len(hits) == 1 else None
 
-def format_menu(canteen: str, iso_date: str, parsed_date: Optional[str],
-                items: List[MenuItem], max_items: int) -> str:
+
+def format_menu(
+    canteen: str,
+    iso_date: str,
+    parsed_date: Optional[str],
+    items: List[MenuItem],
+    max_items: int,
+) -> str:
     header_date = parsed_date or iso_date
     lines = [f"**{canteen}** — {header_date}"]
     if not items:
@@ -107,12 +120,14 @@ def format_menu(canteen: str, iso_date: str, parsed_date: Optional[str],
         lines.append(f"_…and {len(items) - max_items} more._")
     return "\n".join(lines)
 
+
 class Config(BaseProxyConfig):
     def do_update(self, helper: ConfigUpdateHelper) -> None:
         helper.copy("lang")
         helper.copy("default_canteen")
         helper.copy("max_items")
         helper.copy("request_timeout")
+
 
 class GoeLunchBot(Plugin):
     async def start(self) -> None:
@@ -151,7 +166,9 @@ class GoeLunchBot(Plugin):
             first = tokens[0].lower()
 
             # If first token is a date keyword or ISO date, treat it as date
-            if first in {"today", "tomorrow"} or re.fullmatch(r"\d{4}-\d{2}-\d{2}", tokens[0]):
+            if first in {"today", "tomorrow"} or re.fullmatch(
+                r"\d{4}-\d{2}-\d{2}", tokens[0]
+            ):
                 date_token = tokens[0]
                 rest = " ".join(tokens[1:]).strip()
                 # If user only wrote "!lunch tomorrow", use default canteen
@@ -162,13 +179,17 @@ class GoeLunchBot(Plugin):
                 canteen_query = " ".join(tokens).strip() or (default_canteen or None)
 
         if not canteen_query:
-            await evt.reply("No default canteen configured. Please set `default_canteen` in the instance config.")
+            await evt.reply(
+                "No default canteen configured. Please set `default_canteen` in the instance config."
+            )
             return
 
         try:
             date = parse_date(date_token)
         except Exception:
-            await evt.reply("Could not parse date. Use `today`, `tomorrow`, or `YYYY-MM-DD`.")
+            await evt.reply(
+                "Could not parse date. Use `today`, `tomorrow`, or `YYYY-MM-DD`."
+            )
             return
 
         url = URL_TMPL.format(lang=lang, date=date.isoformat())
@@ -180,7 +201,9 @@ class GoeLunchBot(Plugin):
 
         parsed = parse_alle_html(html)
         if not parsed:
-            await evt.reply("No menus found in the fetched document (structure changed?).")
+            await evt.reply(
+                "No menus found in the fetched document (structure changed?)."
+            )
             return
 
         available = sorted(parsed.keys())
@@ -189,10 +212,24 @@ class GoeLunchBot(Plugin):
             q = canteen_query.lower()
             candidates = [c for c in available if q in c.lower()]
             if candidates:
-                await evt.reply("Canteen name is ambiguous. Matches:\n" + "\n".join(f"- {c}" for c in candidates))
+                await evt.reply(
+                    "Canteen name is ambiguous. Matches:\n"
+                    + "\n".join(f"- {c}" for c in candidates)
+                )
             else:
-                await evt.reply("Canteen not found. Available:\n" + "\n".join(f"- {c}" for c in available))
+                await evt.reply(
+                    "Canteen not found. Available:\n"
+                    + "\n".join(f"- {c}" for c in available)
+                )
             return
 
         info = parsed[match]
-        await evt.respond(format_menu(match, date.isoformat(), info.get("date"), info.get("items", []), max_items))
+        await evt.respond(
+            format_menu(
+                match,
+                date.isoformat(),
+                info.get("date"),
+                info.get("items", []),
+                max_items,
+            )
+        )
