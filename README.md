@@ -44,7 +44,7 @@ Examples:
 
 ## Configuration
 
-The plugin uses maubot’s instance configuration system (`base-config.yaml` as defaults).  
+The plugin uses maubot’s instance configuration system (`base-config.yaml` as defaults).
 Edit the config in the maubot Manager UI: **Instances → (your instance) → Config → Save**.
 
 ### `base-config.yaml`
