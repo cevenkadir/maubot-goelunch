@@ -14,6 +14,38 @@ URL_TMPL = (
     "mensaspeiseplan/cached/{lang}/{date}/alle.html"
 )
 
+ICON_EMOJI = {
+    "vegan": "[🌱Ⓥ]",
+    "vegetarisch": "[🥕🥚]",
+    "strohschwein": "[🐷]",
+    "fleisch": "[🥩]",
+    "NDS": "[🇩🇪🐴]",
+    "fisch": "[🐟]",
+}
+
+
+def icons_to_emojis(row_html: str) -> str:
+    m = HIN_RE.search(row_html)
+    if not m:
+        return ""
+    emojis: List[str] = []
+    for src in IMG_RE.findall(m.group(1)):
+        # src ends with .../png/<name>.png
+        name_m = re.search(r"/([^/]+)\.png$", src)
+        if not name_m:
+            continue
+        key = name_m.group(1)
+        if key in ICON_EMOJI:
+            emojis.append(ICON_EMOJI[key])
+    # de-duplicate but keep order
+    seen = set()
+    out = []
+    for e in emojis:
+        if e not in seen:
+            seen.add(e)
+            out.append(e)
+    return " ".join(out)
+
 
 def norm(s: str) -> str:
     return re.sub(r"\s+", " ", (s or "")).strip()
@@ -32,6 +64,7 @@ class MenuItem:
     typ: str
     title: str
     details: Optional[str]
+    emojis: str  # e.g. "[🌱Ⓥ] [🥕🥚]"
 
 
 # --- Parser for alle.html structure (tables with sp_tab) ---
@@ -46,6 +79,8 @@ TYP_RE = re.compile(r'<td class="sp_typ">(.*?)</td>', re.I | re.S)
 BEZ_RE = re.compile(r'<td class="sp_bez">(.*?)</td>', re.I | re.S)
 STRONG_RE = re.compile(r"<strong>(.*?)</strong>", re.I | re.S)
 TAG_STRIP_RE = re.compile(r"<[^>]+>")
+HIN_RE = re.compile(r'<td class="sp_hin">(.*?)</td>', re.I | re.S)
+IMG_RE = re.compile(r'<img[^>]+src="([^"]+)"', re.I)
 
 
 def html_to_text(fragment: str) -> str:
@@ -82,7 +117,9 @@ def parse_alle_html(html: str) -> Dict[str, Dict]:
             details = norm(full[len(title) :]) if full.startswith(title) else full
             details = details if details and details != title else None
 
-            items.append(MenuItem(typ=typ, title=title, details=details))
+            emojis = icons_to_emojis(row)
+
+            items.append(MenuItem(typ=typ, title=title, details=details, emojis=emojis))
 
         out[canteen] = {"date": date_str, "items": items}
     return out
@@ -113,8 +150,9 @@ def format_menu(
         return "\n".join(lines)
 
     for it in items[:max_items]:
+        emoji_txt = f" {it.emojis}" if it.emojis else ""
         detail_txt = f" — {it.details}" if it.details else ""
-        lines.append(f"- **{it.typ}**: {it.title}{detail_txt}")
+        lines.append(f"- **{it.typ}**: {it.title}{detail_txt}{emoji_txt}")
 
     if len(items) > max_items:
         lines.append(f"_…and {len(items) - max_items} more._")
