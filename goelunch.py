@@ -14,13 +14,29 @@ URL_TMPL = (
     "mensaspeiseplan/cached/{lang}/{date}/alle.html"
 )
 
+# Map icon filename -> emoji tag (what you already have)
 ICON_EMOJI = {
     "vegan": "[🌱Ⓥ]",
     "vegetarisch": "[🥕🥚]",
     "strohschwein": "[🐷]",
     "fleisch": "[🥩]",
-    "NDS": "[🇩🇪🐴]",
     "fisch": "[🐟]",
+    "NDS": "[🇩🇪🐴]",
+}
+
+# Human-readable meanings per icon filename
+ICON_MEANING = {
+    "vegan": "vegan",
+    "vegetarisch": "vegetarian",
+    "strohschwein": "straw pig (pork)",
+    "fleisch": "meat",
+    "fisch": "fish/seafood",
+    "NDS": "NDS menu",
+}
+
+# Build emoji -> meaning from the two dicts above
+EMOJI_LEGEND = {
+    emoji: ICON_MEANING[key] for key, emoji in ICON_EMOJI.items() if key in ICON_MEANING
 }
 
 
@@ -149,13 +165,29 @@ def format_menu(
         lines.append("_No items found._")
         return "\n".join(lines)
 
+    used_emojis = set()
+
     for it in items[:max_items]:
+        if it.emojis:
+            for e in it.emojis.split():
+                used_emojis.add(e)
         emoji_txt = f" {it.emojis}" if it.emojis else ""
         detail_txt = f" — {it.details}" if it.details else ""
         lines.append(f"- **{it.typ}**: {it.title}{detail_txt}{emoji_txt}")
 
     if len(items) > max_items:
         lines.append(f"_…and {len(items) - max_items} more._")
+
+    # Legend (only show what appears)
+    legend_lines = []
+    for e in sorted(used_emojis):
+        if e in EMOJI_LEGEND:
+            legend_lines.append(f"- {e} = {EMOJI_LEGEND[e]}")
+    if legend_lines:
+        lines.append("")
+        lines.append("Legend:")
+        lines.extend(legend_lines)
+
     return "\n".join(lines)
 
 
